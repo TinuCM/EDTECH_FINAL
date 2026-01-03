@@ -71,28 +71,28 @@ module.exports = (app) => {
     }
   });
 
-  // Get All Questions for a Chapter (Admin view with answers)
-  app.get("/api/v1/quiz/questions/chapter/:chapterId/admin", async (req, res) => {
-    const { chapterId } = req.params;
+  // // Get All Questions for a Chapter (Admin view with answers)
+  // app.get("/api/v1/quiz/questions/chapter/:chapterId/admin", async (req, res) => {
+  //   const { chapterId } = req.params;
 
-    try {
-      const questions = await QuizQuestion.find({ chapterId });
+  //   try {
+  //     const questions = await QuizQuestion.find({ chapterId });
 
-      const totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
+  //     const totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
 
-      res.status(200).json({ 
-        message: "Questions retrieved successfully",
-        questions,
-        totalQuestions: questions.length,
-        totalMarks
-      });
-    } catch (error) {
-      console.log(error);
-      res.status(500).json({ message: error.message });
-    }
-  });
+  //     res.status(200).json({ 
+  //       message: "Questions retrieved successfully",
+  //       questions,
+  //       totalQuestions: questions.length,
+  //       totalMarks
+  //     });
+  //   } catch (error) {
+  //     console.log(error);
+  //     res.status(500).json({ message: error.message });
+  //   }
+  // });
 
-  // Get Single Question by ID (Admin)
+  // Get Single Question by ID 
   app.get("/api/v1/quiz/question/:questionId", async (req, res) => {
     const { questionId } = req.params;
 
@@ -112,57 +112,6 @@ module.exports = (app) => {
       res.status(500).json({ message: error.message });
     }
   });
-
-  // Update Quiz Question
-  app.put("/api/v1/quiz/question/:questionId", async (req, res) => {
-    const { questionId } = req.params;
-    const { question, options, correctAnswer, marks } = req.body;
-
-    try {
-      const quizQuestion = await QuizQuestion.findById(questionId);
-
-      if (!quizQuestion) {
-        return res.status(404).json({ message: "Question not found" });
-      }
-
-      // Update fields if provided
-      if (question) quizQuestion.question = question;
-      if (options && Array.isArray(options) && options.length >= 2) {
-        quizQuestion.options = options;
-      }
-      if (correctAnswer) quizQuestion.correctAnswer = correctAnswer;
-      if (marks) quizQuestion.marks = marks;
-
-      await quizQuestion.save();
-
-      res.status(200).json({ 
-        message: "Question updated successfully",
-        question: quizQuestion
-      });
-    } catch (error) {
-      console.log(error);
-      res.status(500).json({ message: error.message });
-    }
-  });
-
-  // Delete Quiz Question
-  app.delete("/api/v1/quiz/question/:questionId", async (req, res) => {
-    const { questionId } = req.params;
-
-    try {
-      const question = await QuizQuestion.findByIdAndDelete(questionId);
-
-      if (!question) {
-        return res.status(404).json({ message: "Question not found" });
-      }
-
-      res.status(200).json({ 
-        message: "Question deleted successfully"
-      });
-    } catch (error) {
-      console.log(error);
-      res.status(500).json({ message: error.message });
-    }
-  });
+ 
 };
 

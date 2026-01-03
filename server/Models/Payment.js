@@ -38,10 +38,10 @@ const paymentSchema = new mongoose.Schema({
   timestamps: true
 });
 
-
+// Indexes for faster queries
 paymentSchema.index({ parentId: 1 });
 paymentSchema.index({ childId: 1 });
-paymentSchema.index({ transactionId: 1 });
+// Note: transactionId already has a unique index from "unique: true" in schema
 
 mongoose.model("payments", paymentSchema);
 
