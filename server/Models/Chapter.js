@@ -7,7 +7,7 @@ const chapterSchema = new mongoose.Schema({
   name: String,
   description: String,
   videourl: String,
-
+  chapterNumber: { type: Number, required: true },
 });
 
 
