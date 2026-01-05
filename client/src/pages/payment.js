@@ -13,6 +13,7 @@ import {
   Chip,
   Stack,
   Divider,
+  useMediaQuery,
 } from "@mui/material";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 
@@ -24,7 +25,8 @@ const plans = [
     price: "₹0",
     period: "Forever",
     description: "Play, learn & explore 🧩",
-    color: "#EAF7FF",
+    colorLight: "#F2F8FF",
+    colorDark: "#132238",
     highlight: false,
     features: ["Starter lessons", "Fun quizzes", "Friendly help"],
     cta: "Start Playing",
@@ -32,7 +34,8 @@ const plans = [
   {
     title: "Student Pro",
     description: "Unlock all learning adventures 🚀",
-    color: "#FFF6D6",
+    colorLight: "#FFF8E1",
+    colorDark: "#2A1F0F",
     highlight: true,
     features: [
       "All Free features",
@@ -48,24 +51,24 @@ export default function PricingPage() {
   const [currentPlan, setCurrentPlan] = useState("Free");
   const [selectedPlan, setSelectedPlan] = useState("Free");
   const [billing, setBilling] = useState("monthly");
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+
+  const isDark = useMediaQuery("(prefers-color-scheme: dark)");
+  const isMobile = useMediaQuery("(max-width:600px)");
 
   const discountedMonthly = Math.round(BASE_PRICE_INR * 0.8);
   const yearlyPrice = Math.round(discountedMonthly * 12 * 0.8);
 
-  /* ---------------- Razorpay Loader ---------------- */
-  const loadRazorpay = () => {
-    return new Promise((resolve) => {
+  const loadRazorpay = () =>
+    new Promise((resolve) => {
       if (typeof window === "undefined") return resolve(false);
-
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
       document.body.appendChild(script);
     });
-  };
 
-  /* ---------------- Handle Plan Selection ---------------- */
   const handlePlanSelect = async (plan) => {
     if (plan !== "Student Pro") {
       setCurrentPlan("Free");
@@ -73,57 +76,48 @@ export default function PricingPage() {
     }
 
     const amount = billing === "yearly" ? yearlyPrice : discountedMonthly;
-
-    const razorpayLoaded = await loadRazorpay();
-    if (!razorpayLoaded) {
-      alert("Razorpay SDK failed to load");
-      return;
-    }
+    const loaded = await loadRazorpay();
+    if (!loaded) return alert("Razorpay SDK failed");
 
     try {
-      // 1️⃣ Create order on backend
       const orderRes = await axios.post("/api/create-order", { amount });
 
-      const options = {
+      const razorpay = new window.Razorpay({
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderRes.data.amount,
         currency: "INR",
         name: "EdTech Learning",
         description: "Student Pro Subscription",
         order_id: orderRes.data.id,
-
-        handler: function (response) {
-          console.log("Payment success:", response);
+        handler() {
           setCurrentPlan("Student Pro");
-
-          if (typeof window !== "undefined") {
-            localStorage.setItem("plan", "Student Pro");
-          }
-
-          alert("Payment successful 🎉 Welcome to Student Pro!");
+          localStorage.setItem("plan", "Student Pro");
+          alert("Payment successful 🎉");
         },
+        theme: { color: "#FF9800" },
+      });
 
-        prefill: {
-          name: "Student",
-          email: "student@example.com",
-        },
-
-        theme: {
-          color: "#0B5ED7",
-        },
-      };
-
-      const razorpay = new window.Razorpay(options);
       razorpay.open();
-    } catch (error) {
-      console.error("Payment failed", error);
-      alert("Payment failed. Please try again.");
+    } catch {
+      alert("Payment failed");
     }
   };
 
+  /* Cursor-based tilt (ONLY for selected card) */
+  const handleMouseMove = (e, plan) => {
+    if (isMobile || selectedPlan !== plan) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 10;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * -10;
+    setTilt({ x, y });
+  };
+
+  const resetTilt = () => setTilt({ x: 0, y: 0 });
+
   return (
-    <Box sx={{ bgcolor: "#F6FAFF", minHeight: "100vh" }}>
-      {/* ---------- Header ---------- */}
+    <Box sx={{ bgcolor: isDark ? "#0E1624" : "#F6FAFF", minHeight: "100vh" }}>
+      {/* Header */}
       <Box
         sx={{
           bgcolor: "#0B5ED7",
@@ -132,159 +126,145 @@ export default function PricingPage() {
           borderBottomRightRadius: 28,
         }}
       >
-        <Container maxWidth="lg">
-          <Box display="flex" alignItems="center" gap={1}>
-            <Image src="/logo.png" alt="Kids Logo" width={140} height={40} />
-          </Box>
+        <Container>
+          <Image src="/logo.png" alt="Logo" width={140} height={40} />
         </Container>
       </Box>
 
-      {/* ---------- Content ---------- */}
-      <Container maxWidth="lg" sx={{ py: 8 }}>
-        <Stack spacing={2} textAlign="center" mb={6}>
+      <Container sx={{ py: 6 }}>
+        <Stack textAlign="center" spacing={1} mb={5}>
           <Typography variant="h3" fontWeight={900} color="#0B5ED7">
             Fun Pricing for Happy Learning
           </Typography>
-          <Typography variant="h6" color="text.secondary">
+          <Typography color="text.secondary">
             Learn • Play • Grow 🌈
           </Typography>
         </Stack>
 
-        {/* Billing Toggle */}
-        <Stack direction="row" justifyContent="center" spacing={2} mb={6}>
-          <Button
-            variant={billing === "monthly" ? "contained" : "outlined"}
-            onClick={() => setBilling("monthly")}
-          >
-            Monthly
-          </Button>
-          <Button
-            variant={billing === "yearly" ? "contained" : "outlined"}
-            onClick={() => setBilling("yearly")}
-          >
-            Yearly 🎉 (20% OFF)
-          </Button>
-        </Stack>
+        <Grid container spacing={4} justifyContent="center">
+          {plans.map((plan) => {
+            const isSelected = selectedPlan === plan.title;
+            const isCurrent = currentPlan === plan.title;
 
-        {/* Pricing Cards */}
-        <Grid container spacing={5} justifyContent="center">
-          {plans.map((plan) => (
-            <Grid
-              item
-              xs={12}
-              md={4}
-              key={plan.title}
-              sx={{ cursor: "pointer" }}
-              onClick={() => setSelectedPlan(plan.title)}
-            >
-              <Card
-                sx={{
-                  height: "100%",
-                  borderRadius: 6,
-                  backgroundColor: plan.color,
-                  border: plan.highlight
-                    ? "3px solid #FF9800"
-                    : "1px solid rgba(0,0,0,0.1)",
-                  transform:
-                    selectedPlan === plan.title ? "scale(1.08)" : "scale(1)",
-                  transition: "transform .3s",
-                }}
-              >
-                <CardContent sx={{ p: 4 }}>
-                  <Stack spacing={2} alignItems="center">
-                    {plan.highlight && (
-                      <Chip
-                        label="Most Loved ⭐"
-                        sx={{
-                          bgcolor: "#FF9800",
-                          color: "#fff",
-                          fontWeight: 700,
-                        }}
-                      />
-                    )}
+            return (
+              <Grid item xs={12} md={4} key={plan.title}>
+                <Card
+                  onMouseMove={(e) => handleMouseMove(e, plan.title)}
+                  onMouseLeave={resetTilt}
+                  onClick={() => setSelectedPlan(plan.title)}
+                  sx={{
+                    height: "100%",
+                    display: "flex",
+                    flexDirection: "column",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    backgroundColor: isDark
+                      ? plan.colorDark
+                      : plan.colorLight,
+                    border: isSelected
+                      ? "3px solid #FF9800"
+                      : "1px solid rgba(0,0,0,0.1)",
 
-                    <Typography variant="h5" fontWeight={800}>
-                      {plan.title}
-                    </Typography>
+                    transform:
+                      isSelected && !isMobile
+                        ? `perspective(900px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg) scale(1.05)`
+                        : "none",
 
-                    <Typography textAlign="center" color="text.secondary">
-                      {plan.description}
-                    </Typography>
+                    transition:
+                      "transform 0.15s ease, box-shadow 0.15s ease",
 
-                    <Typography variant="h3" fontWeight={900}>
-                      {plan.title === "Student Pro"
-                        ? billing === "yearly"
-                          ? `₹${yearlyPrice}`
-                          : `₹${discountedMonthly}`
-                        : plan.price}
-                    </Typography>
+                    boxShadow: isSelected
+                      ? `0 ${Math.abs(tilt.y) * 2 + 20}px ${
+                          Math.abs(tilt.x) * 2 + 40
+                        }px rgba(255,152,0,0,0.9)`
+                      : "0 8px 18px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <CardContent sx={{ p: isMobile ? 2.5 : 4 }}>
+                    <Stack spacing={1.5} alignItems="center">
+                      {plan.highlight && (
+                        <Chip
+                          label="Most Loved ⭐"
+                          sx={{
+                            bgcolor: "#FF9800",
+                            color: "#fff",
+                          }}
+                        />
+                      )}
 
-                    <Typography color="text.secondary">
-                      {plan.title === "Student Pro"
-                        ? billing === "yearly"
-                          ? "per year"
-                          : "per month"
-                        : plan.period}
-                    </Typography>
+                      <Typography variant={isMobile ? "h6" : "h5"} fontWeight={800}>
+                        {plan.title}
+                      </Typography>
 
-                    <Divider sx={{ width: "100%" }} />
+                      <Typography
+                        textAlign="center"
+                        variant="body2"
+                        color="text.secondary"
+                      >
+                        {plan.description}
+                      </Typography>
 
-                    <Stack spacing={1} width="100%">
-                      {plan.features.map((feature) => (
-                        <Stack
-                          key={feature}
-                          direction="row"
-                          spacing={1}
-                          alignItems="center"
-                        >
-                          <CheckCircleIcon sx={{ color: "#0B5ED7" }} />
-                          <Typography variant="body2">
-                            {feature}
-                          </Typography>
-                        </Stack>
-                      ))}
+                      <Typography
+                        variant={isMobile ? "h4" : "h3"}
+                        fontWeight={900}
+                      >
+                        {plan.title === "Student Pro"
+                          ? billing === "yearly"
+                            ? `₹${yearlyPrice}`
+                            : `₹${discountedMonthly}`
+                          : plan.price}
+                      </Typography>
+
+                      <Divider sx={{ width: "100%" }} />
+
+                      <Stack spacing={0.8} width="100%">
+                        {plan.features.map((f) => (
+                          <Stack key={f} direction="row" spacing={1}>
+                            <CheckCircleIcon sx={{ color: "#0B5ED7" }} />
+                            <Typography variant="body2">{f}</Typography>
+                          </Stack>
+                        ))}
+                      </Stack>
                     </Stack>
-                  </Stack>
-                </CardContent>
+                  </CardContent>
 
-                <CardActions sx={{ p: 4, pt: 0 }}>
-                  <Button
-                    fullWidth
-                    size="large"
-                    disabled={currentPlan === plan.title}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePlanSelect(plan.title);
-                    }}
-                    sx={{
-                      borderRadius: 999,
-                      fontWeight: 900,
-                      fontSize: "1rem",
-                      bgcolor: "#FF9800",
-                      color: "#fff",
-                      border: "2px solid #FF9800",
-                      boxShadow: "0 6px 0 #F57C00",
-                      "&:hover": { bgcolor: "#FFC107" },
-                      "&.Mui-disabled": {
-                        bgcolor: "#FFE0B2",
-                        color: "#BF360C",
-                        boxShadow: "none",
-                      },
-                    }}
-                  >
-                    {currentPlan === plan.title
-                      ? "Current Plan ✅"
-                      : plan.cta}
-                  </Button>
-                </CardActions>
-              </Card>
-            </Grid>
-          ))}
+                  <CardActions sx={{ p: isMobile ? 2 : 4 }}>
+                    <Button
+                      fullWidth
+                      disabled={isCurrent}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePlanSelect(plan.title);
+                      }}
+                      sx={{
+                        borderRadius: 999,
+                        fontWeight: 900,
+                        bgcolor: "#FF9800",
+                        color: "#fff",
+                        "&.Mui-disabled": {
+                          bgcolor: "#FFD699",
+                          color: "#8A4B00",
+                        },
+                      }}
+                    >
+                      {isCurrent ? "Current Plan ✅" : plan.cta}
+                    </Button>
+                  </CardActions>
+                </Card>
+              </Grid>
+            );
+          })}
         </Grid>
 
+        {/* Footer */}
         <Box mt={10} textAlign="center">
-          <Typography variant="h5" fontWeight={800}>
-            Learning is more fun with friends 🎉
+          <Divider sx={{ mb: 2 }} />
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            fontWeight={600}
+          >
+            Powered by <span style={{ color: "#FF9800" }}>StudyPilot</span>
           </Typography>
         </Box>
       </Container>
